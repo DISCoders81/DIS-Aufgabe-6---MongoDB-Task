@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.bson.types.BasicBSONList;
+
 import twitter4j.GeoLocation;
 import twitter4j.Status;
 import twitter4j.json.DataObjectFactory;
@@ -82,6 +84,8 @@ public class MovieService extends MovieServiceBase {
 		movies.ensureIndex("rating");
 		movies.ensureIndex("votes");
 		tweets.ensureIndex(new BasicDBObject("coordinates", "2dsphere"));
+
+		fs = new GridFS(db);
 	}
 
 
@@ -109,7 +113,7 @@ public class MovieService extends MovieServiceBase {
 	public DBObject findMovieByTitle(String title) {
 
 		BasicDBObject query = new BasicDBObject();
-		query.put("Title", title);
+		query.put("title", title);
 
 		DBObject result = movies.findOne(query);
 
@@ -151,7 +155,7 @@ public class MovieService extends MovieServiceBase {
 
 		DBCursor best = movies.find(query).limit(limit);
 
-		return best;
+		return best.sort(new BasicDBObject("rating", -1));
 	}
 
 
@@ -192,7 +196,8 @@ public class MovieService extends MovieServiceBase {
 
 		// DONE: implement
 		DBObject prefixQuery = QueryBuilder.start("title").regex(Pattern.compile("/^" + titlePrefix + ".*")).get();
-		return movies.find(prefixQuery).limit(limit);
+		DBCursor result = movies.find(prefixQuery).limit(limit);
+		return result;
 	}
 
 
@@ -249,7 +254,11 @@ public class MovieService extends MovieServiceBase {
 	 */
 	public void saveMovieComment(String id, String comment) {
 
-		// TODO: implement
+		// DONE: implement
+		BasicDBObject queryObject = new BasicDBObject("id", id);
+		BasicDBObject updateObject = new BasicDBObject("$set", new BasicDBObject("comment", comment));
+
+		movies.update(queryObject, updateObject);
 
 	}
 
@@ -264,9 +273,15 @@ public class MovieService extends MovieServiceBase {
 	 */
 	public DBCursor getGeotaggedTweets(int limit) {
 
-		// TODO : implement
-		DBCursor result = null;
-		return result;
+		// DONE : implement
+		DBObject query1 = QueryBuilder.start().not().exists("coordinates").get();
+		DBObject query2 = new BasicDBObject("coordinates", null);
+		BasicBSONList connectedQueries = new BasicBSONList();
+		connectedQueries.add(query1);
+		connectedQueries.add(query2);
+
+		DBCursor result = tweets.find(new BasicDBObject("$or", connectedQueries));
+		return result.limit(limit);
 	}
 
 
@@ -283,10 +298,18 @@ public class MovieService extends MovieServiceBase {
 	 */
 	public DBCursor getTaggedTweets() {
 
-		// TODO : implement
-		DBObject projection = null;
-		DBObject query = null;
-		DBObject sort = null;
+		// DONE : implement
+		tweets.ensureIndex("coordinates");
+		DBObject projectionFields = new BasicDBObject("_id", 0);
+		projectionFields.put("text", 1);
+		projectionFields.put("movie", 1);
+		projectionFields.put("user.name", 1);
+		projectionFields.put("coordinates", 1);
+
+		DBObject projection = new BasicDBObject("$project", projectionFields);
+
+		DBObject query = QueryBuilder.start().exists("coordinates").get();
+		DBObject sort = new BasicDBObject("_id", -1);
 		DBCursor results = tweets.find(query, projection).sort(sort);
 		return results;
 	}
@@ -377,8 +400,9 @@ public class MovieService extends MovieServiceBase {
 	 */
 	public DBCursor getByTweetsKeywordRegex(String keyword, int limit) {
 
-		// TODO : implement
-		DBCursor result = null;
+		// DONE : implement
+		DBObject query = QueryBuilder.start("title").regex(Pattern.compile(".*" + keyword + ".*")).get();
+		DBCursor result = tweets.find(query).limit(limit);
 		return result;
 	}
 
@@ -433,8 +457,9 @@ public class MovieService extends MovieServiceBase {
 	 */
 	public DBCursor getNewestTweets(int limit) {
 
-		// TODO : implement
-		DBCursor result = null;
+		// DONE : implement
+
+		DBCursor result = tweets.find().sort(new BasicDBObject("_id", -1)).limit(limit);
 		return result;
 	}
 
@@ -500,8 +525,12 @@ public class MovieService extends MovieServiceBase {
 	 */
 	public GridFSDBFile getFile(String name) {
 
-		// TODO: implement
-		GridFSDBFile file = null;
+		// DONE: implement
+		GridFSDBFile file = fs.findOne(name);
+		if (file == null)
+		{
+			file = fs.findOne("sample.png");
+		}
 		return file;
 	}
 
@@ -517,10 +546,13 @@ public class MovieService extends MovieServiceBase {
 	 */
 	public void saveFile(String name, InputStream inputStream, String contentType) {
 
-		GridFSInputFile gFile = null;
+		GridFSInputFile gFile = fs.createFile(inputStream, name);
+
 		// Remove old versions
 		fs.remove(name);
-		// TODO: implement
+		// DONE: implement
+		gFile.setContentType(contentType);
+		gFile.save();
 	}
 
 
