@@ -19,6 +19,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.MongoClient;
+import com.mongodb.QueryBuilder;
 import com.mongodb.gridfs.GridFS;
 import com.mongodb.gridfs.GridFSDBFile;
 import com.mongodb.gridfs.GridFSInputFile;
@@ -144,8 +145,12 @@ public class MovieService extends MovieServiceBase {
 	 */
 	public DBCursor getBestMovies(int minVotes, double minRating, int limit) {
 
-		// TODO: implement
-		DBCursor best = null;
+		// DONE: implement
+
+		DBObject query = QueryBuilder.start("votes").greaterThan(minVotes).and("rating").greaterThanEquals(minRating).get();
+
+		DBCursor best = movies.find(query).limit(limit);
+
 		return best;
 	}
 
@@ -163,8 +168,10 @@ public class MovieService extends MovieServiceBase {
 	public DBCursor getByGenre(String genreList, int limit) {
 
 		String[] genres = genreList.split(",");
-		// TODO: implement
-		DBCursor result = null;
+		// DONE: implement
+		DBObject query = QueryBuilder.start("genre").all(genres).get();
+
+		DBCursor result = movies.find(query).limit(limit);
 		return result;
 	}
 
@@ -183,8 +190,8 @@ public class MovieService extends MovieServiceBase {
 	 */
 	public DBCursor searchByPrefix(String titlePrefix, int limit) {
 
-		// TODO: implement
-		DBObject prefixQuery = null;
+		// DONE: implement
+		DBObject prefixQuery = QueryBuilder.start("title").regex(Pattern.compile("/^" + titlePrefix + ".*")).get();
 		return movies.find(prefixQuery).limit(limit);
 	}
 
@@ -224,8 +231,9 @@ public class MovieService extends MovieServiceBase {
 	 */
 	public DBCursor getTweetedMovies() {
 
-		// TODO: implement
-		DBCursor results = null;
+		// DONE: implement
+		DBObject query = QueryBuilder.start().exists("tweets").get();
+		DBCursor results = movies.find(query);
 		return results;
 	}
 
